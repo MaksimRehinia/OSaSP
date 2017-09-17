@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "WndClass.h"
 #include "WINAPI_Graphics.h"
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
