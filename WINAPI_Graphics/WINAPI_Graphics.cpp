@@ -4,7 +4,7 @@
 
 enum Direction { TOP, RIGHT, BOTTOM, LEFT };
 
-bool CheckCoords(int, int, RECT);
+bool CheckCoords(int x, int y, RECT shape);
 void DoMove(HWND hWnd, long *firstPoint, long *secondPoint, int step);
 int GetStep(Direction direction);
 void RefreshFigure(HWND hWnd, long *firstPoint, long *secondPoint, int step);
@@ -15,17 +15,16 @@ void Moving(HWND hWnd, RECT usrWnd, long *firstPoint, long *secondPoint, Directi
 void Drawing(HDC hDC, HBRUSH brush);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-const int RECT_HEIGHT = 100, RECT_WIDTH = 300;
 const int R = 100, G = 200, B = 200;
 const int KEY_DIST = 40;
-
+const int PICTURE_WIDTH = 220, PICTURE_HEIGHT = 216;
 const int TIMER_TIME = 10, TIMER_STEP = 1;
 
 int _inOneSide;
 Direction _direction;
 int _tempStep;
 
-RECT shape = { 0, 0, RECT_WIDTH, RECT_HEIGHT };
+RECT picture;
 
 bool CheckCoords(int x, int y, RECT shape)
 {
@@ -80,13 +79,13 @@ int GetStepCountToBorder(RECT usrWnd, Direction direction)
 	switch (direction)
 	{
 	case BOTTOM:
-		return usrWnd.bottom - shape.bottom;
+		return usrWnd.bottom - picture.bottom;
 	case TOP:
-		return shape.top - usrWnd.top;
+		return picture.top - usrWnd.top;
 	case LEFT:
-		return shape.left - usrWnd.left;
+		return picture.left - usrWnd.left;
 	case RIGHT:
-		return usrWnd.right - shape.right;
+		return usrWnd.right - picture.right;
 	}
 }
 
@@ -95,19 +94,19 @@ bool IsMovingInBorder(RECT usrWnd, Direction direction)
 	switch (direction)
 	{
 	case TOP:
-		if (shape.top - KEY_DIST < usrWnd.top)
+		if (picture.top - KEY_DIST < usrWnd.top)
 			return true;
 		break;
 	case RIGHT:
-		if (shape.right + KEY_DIST > usrWnd.right)
+		if (picture.right + KEY_DIST > usrWnd.right)
 			return true;
 		break;
 	case BOTTOM:
-		if (shape.bottom + KEY_DIST > usrWnd.bottom)
+		if (picture.bottom + KEY_DIST > usrWnd.bottom)
 			return true;
 		break;
 	case LEFT:
-		if (shape.left - KEY_DIST < usrWnd.left)
+		if (picture.left - KEY_DIST < usrWnd.left)
 			return true;
 	}
 	return false;
@@ -127,7 +126,7 @@ void Moving(HWND hWnd, RECT usrWnd, long *firstPoint, long *secondPoint, Directi
 void Drawing(HDC hDC, HBRUSH brush)
 {
 	SelectObject(hDC, brush);
-	Rectangle(hDC, shape.left, shape.top, shape.right, shape.bottom);
+	Rectangle(hDC, picture.left, picture.top, picture.right, picture.bottom);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int
@@ -148,28 +147,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	PAINTSTRUCT ps;
 	static POINT lbutDown, mouseDiffer;
 	static bool redrawRect = false;
-	HBRUSH brush = CreateSolidBrush(RGB(R, G, B));
+	static HBRUSH brush = NULL;
+	static HBITMAP hBitmap = NULL;
+
+	static HDC hdcMem = NULL;
 
 	static RECT usrWnd;
-
+	static HGDIOBJ oldBitmap = NULL;
 	switch (uMsg)
-	{		
-	case WM_PAINT:
+	{	
+	case WM_CREATE:
 	{
-		GetClientRect(hWnd, &usrWnd);
+		brush = CreateSolidBrush(RGB(R, G, B));
+		hBitmap = (HBITMAP)LoadImage(NULL, L"ball.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+		hdcMem = CreateCompatibleDC(GetDC(0));
+		oldBitmap = SelectObject(hdcMem, hBitmap);
+		picture.left = picture.top = 0;
+		picture.right = PICTURE_WIDTH;
+		picture.bottom = PICTURE_HEIGHT;
+		break;
+	}
+	case WM_PAINT:
+	{						
 		InvalidateRect(hWnd, 0, TRUE);
 		hDC = BeginPaint(hWnd, &ps);
-		Drawing(hDC, brush);
-		EndPaint(hWnd, &ps);
+		GetClientRect(hWnd, &usrWnd);
+		//Drawing(hDC, brush);						
+		BitBlt(hDC, picture.left, picture.top, PICTURE_WIDTH, PICTURE_HEIGHT, hdcMem, 0, 0, SRCCOPY);		
+		EndPaint(hWnd, &ps);	
 		break;
 	}
 	case WM_LBUTTONDOWN:
 	{
 		lbutDown.x = LOWORD(lParam);
 		lbutDown.y = HIWORD(lParam);
-		mouseDiffer.x = LOWORD(lParam) - shape.left;
-		mouseDiffer.y = HIWORD(lParam) - shape.top;
-		if (CheckCoords(lbutDown.x, lbutDown.y, shape))
+		mouseDiffer.x = LOWORD(lParam) - picture.left;
+		mouseDiffer.y = HIWORD(lParam) - picture.top;
+		if (CheckCoords(lbutDown.x, lbutDown.y, picture))
 			redrawRect = true;
 		break;
 	}
@@ -182,11 +196,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		if (redrawRect)
 		{
-			shape.left = LOWORD(lParam) - mouseDiffer.x;
-			shape.top = HIWORD(lParam) - mouseDiffer.y;
-			shape.right = shape.left + RECT_WIDTH;
-			shape.bottom = shape.top + RECT_HEIGHT;
-			InvalidateRect(hWnd, &shape, TRUE);
+			picture.left = LOWORD(lParam) - mouseDiffer.x;
+			picture.top = HIWORD(lParam) - mouseDiffer.y;
+			picture.right = picture.left + PICTURE_WIDTH;
+			picture.bottom = picture.top + PICTURE_HEIGHT;
+			InvalidateRect(hWnd, &picture, TRUE);
 		}
 		break;
 	}
@@ -196,22 +210,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 		case VK_DOWN:
 		{
-			Moving(hWnd, usrWnd, &shape.top, &shape.bottom, BOTTOM);
+			Moving(hWnd, usrWnd, &picture.top, &picture.bottom, BOTTOM);
 			break;
 		}
 		case VK_UP:
 		{
-			Moving(hWnd, usrWnd, &shape.top, &shape.bottom, TOP);
+			Moving(hWnd, usrWnd, &picture.top, &picture.bottom, TOP);
 			break;
 		}
 		case VK_LEFT:
 		{
-			Moving(hWnd, usrWnd, &shape.left, &shape.right, LEFT);
+			Moving(hWnd, usrWnd, &picture.left, &picture.right, LEFT);
 			break;
 		}
 		case VK_RIGHT:
 		{
-			Moving(hWnd, usrWnd, &shape.left, &shape.right, RIGHT);
+			Moving(hWnd, usrWnd, &picture.left, &picture.right, RIGHT);
 			break;
 		}
 		default:
@@ -225,22 +239,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 		case LEFT:
 		{
-			DoMove(hWnd, &shape.left, &shape.right, -TIMER_STEP);
+			DoMove(hWnd, &picture.left, &picture.right, -TIMER_STEP);
 			break;
 		}
 		case TOP:
 		{
-			DoMove(hWnd, &shape.top, &shape.bottom, -TIMER_STEP);
+			DoMove(hWnd, &picture.top, &picture.bottom, -TIMER_STEP);
 			break;
 		}
 		case RIGHT:
 		{
-			DoMove(hWnd, &shape.left, &shape.right, TIMER_STEP);
+			DoMove(hWnd, &picture.left, &picture.right, TIMER_STEP);
 			break;
 		}
 		case BOTTOM:
 		{
-			DoMove(hWnd, &shape.top, &shape.bottom, TIMER_STEP);
+			DoMove(hWnd, &picture.top, &picture.bottom, TIMER_STEP);
 			break;
 		}
 		}
@@ -258,28 +272,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			if (delta > 0)
 			{
-				Moving(hWnd, usrWnd, &shape.left, &shape.right, RIGHT);
+				Moving(hWnd, usrWnd, &picture.left, &picture.right, RIGHT);
 			}
 			else
 			{
-				Moving(hWnd, usrWnd, &shape.left, &shape.right, LEFT);
+				Moving(hWnd, usrWnd, &picture.left, &picture.right, LEFT);
 			}
 		}
 		else
 		{
 			if (delta > 0)
 			{
-				Moving(hWnd, usrWnd, &shape.top, &shape.bottom, TOP);
+				Moving(hWnd, usrWnd, &picture.top, &picture.bottom, TOP);
 			}
 			else
 			{
-				Moving(hWnd, usrWnd, &shape.top, &shape.bottom, BOTTOM);
+				Moving(hWnd, usrWnd, &picture.top, &picture.bottom, BOTTOM);
 			}
 		}
 		break;
 	}
 	case WM_DESTROY:
 	{
+		SelectObject(hdcMem, oldBitmap);
+		DeleteDC(hdcMem);
 		DeleteObject(brush);
 		PostQuitMessage(0);
 		break;
