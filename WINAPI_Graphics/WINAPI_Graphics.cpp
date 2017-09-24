@@ -4,16 +4,26 @@
 
 enum Direction { TOP, RIGHT, BOTTOM, LEFT };
 
+bool CheckCoords(int, int, RECT);
+void DoMove(HWND hWnd, long *firstPoint, long *secondPoint, int step);
 int GetStep(Direction direction);
 void RefreshFigure(HWND hWnd, long *firstPoint, long *secondPoint, int step);
+void MovingWithTimer(HWND hWnd, int inOneSide, Direction direction);
+int GetStepCountToBorder(RECT usrWnd, Direction direction);
+bool IsMovingInBorder(RECT usrWnd, Direction direction);
 void Moving(HWND hWnd, RECT usrWnd, long *firstPoint, long *secondPoint, Direction direction);
 void Drawing(HDC hDC, HBRUSH brush);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-bool CheckCoords(int, int, RECT);
 
 const int RECT_HEIGHT = 100, RECT_WIDTH = 300;
 const int R = 100, G = 200, B = 200;
 const int KEY_DIST = 40;
+
+const int TIMER_TIME = 10, TIMER_STEP = 1;
+
+int _inOneSide;
+Direction _direction;
+int _tempStep;
 
 RECT shape = { 0, 0, RECT_WIDTH, RECT_HEIGHT };
 
@@ -21,6 +31,18 @@ bool CheckCoords(int x, int y, RECT shape)
 {
 	return (x >= shape.left && x <= shape.right &&
 		    y >= shape.top  && y <= shape.bottom);
+}
+
+void DoMove(HWND hWnd, long *firstPoint, long *secondPoint, int step)
+{
+	if (_inOneSide > 0)
+	{
+		RefreshFigure(hWnd, firstPoint, secondPoint, step);
+	}
+	else
+	{
+		RefreshFigure(hWnd, firstPoint, secondPoint, -step);
+	}
 }
 
 int GetStep(Direction direction)
@@ -45,9 +67,61 @@ void RefreshFigure(HWND hWnd, long *firstPoint, long *secondPoint, int step)
 	InvalidateRect(hWnd, 0, TRUE);
 }
 
+void MovingWithTimer(HWND hWnd, int inOneSide, Direction direction)
+{
+	_direction = direction;
+	_inOneSide = inOneSide;
+	_tempStep = KEY_DIST;
+	SetTimer(hWnd, 1, TIMER_TIME, NULL);
+}
+
+int GetStepCountToBorder(RECT usrWnd, Direction direction)
+{
+	switch (direction)
+	{
+	case BOTTOM:
+		return usrWnd.bottom - shape.bottom;
+	case TOP:
+		return shape.top - usrWnd.top;
+	case LEFT:
+		return shape.left - usrWnd.left;
+	case RIGHT:
+		return usrWnd.right - shape.right;
+	}
+}
+
+bool IsMovingInBorder(RECT usrWnd, Direction direction)
+{
+	switch (direction)
+	{
+	case TOP:
+		if (shape.top - KEY_DIST < usrWnd.top)
+			return true;
+		break;
+	case RIGHT:
+		if (shape.right + KEY_DIST > usrWnd.right)
+			return true;
+		break;
+	case BOTTOM:
+		if (shape.bottom + KEY_DIST > usrWnd.bottom)
+			return true;
+		break;
+	case LEFT:
+		if (shape.left - KEY_DIST < usrWnd.left)
+			return true;
+	}
+	return false;
+}
+
 void Moving(HWND hWnd, RECT usrWnd, long *firstPoint, long *secondPoint, Direction direction)
 {	
-	RefreshFigure(hWnd, firstPoint, secondPoint, GetStep(direction));
+	if (IsMovingInBorder(usrWnd, direction))
+	{
+		int stepCountToBorder = GetStepCountToBorder(usrWnd, direction);
+		MovingWithTimer(hWnd, stepCountToBorder, direction);
+	}
+	else
+		RefreshFigure(hWnd, firstPoint, secondPoint, GetStep(direction));
 }
 
 void Drawing(HDC hDC, HBRUSH brush)
@@ -143,6 +217,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		default:
 			break;
 		}
+		break;
+	}
+	case WM_TIMER:
+	{
+		switch (_direction)
+		{
+		case LEFT:
+		{
+			DoMove(hWnd, &shape.left, &shape.right, -TIMER_STEP);
+			break;
+		}
+		case TOP:
+		{
+			DoMove(hWnd, &shape.top, &shape.bottom, -TIMER_STEP);
+			break;
+		}
+		case RIGHT:
+		{
+			DoMove(hWnd, &shape.left, &shape.right, TIMER_STEP);
+			break;
+		}
+		case BOTTOM:
+		{
+			DoMove(hWnd, &shape.top, &shape.bottom, TIMER_STEP);
+			break;
+		}
+		}
+		_tempStep--;
+		_inOneSide--;
+		if (_tempStep == 0)
+			KillTimer(hWnd, 1);
 		break;
 	}
 	case WM_DESTROY:
