@@ -250,6 +250,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			KillTimer(hWnd, 1);
 		break;
 	}
+	case WM_MOUSEWHEEL:
+	{
+		int keyState = GET_KEYSTATE_WPARAM(wParam);
+		int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+		if (keyState == MK_SHIFT)
+		{
+			if (delta > 0)
+			{
+				Moving(hWnd, usrWnd, &shape.left, &shape.right, RIGHT);
+			}
+			else
+			{
+				Moving(hWnd, usrWnd, &shape.left, &shape.right, LEFT);
+			}
+		}
+		else
+		{
+			if (delta > 0)
+			{
+				Moving(hWnd, usrWnd, &shape.top, &shape.bottom, TOP);
+			}
+			else
+			{
+				Moving(hWnd, usrWnd, &shape.top, &shape.bottom, BOTTOM);
+			}
+		}
+		break;
+	}
 	case WM_DESTROY:
 	{
 		DeleteObject(brush);
