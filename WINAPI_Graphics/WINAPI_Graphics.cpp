@@ -2,12 +2,28 @@
 #include "WndClass.h"
 #include "WINAPI_Graphics.h"
 
+enum Direction { TOP, RIGHT, BOTTOM, LEFT };
+
+void Drawing(HDC hDC, HBRUSH brush);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-void CreateRect(HDC, RECT, HBRUSH);
-bool CheckCoords(int x, int y, RECT);
+bool CheckCoords(int, int, RECT);
 
 const int RECT_HEIGHT = 100, RECT_WIDTH = 300;
 const int R = 100, G = 200, B = 200;
+
+RECT shape = { 0, 0, RECT_WIDTH, RECT_HEIGHT };
+
+bool CheckCoords(int x, int y, RECT shape)
+{
+	return (x >= shape.left && x <= shape.right &&
+		    y >= shape.top  && y <= shape.bottom);
+}
+
+void Drawing(HDC hDC, HBRUSH brush)
+{
+	SelectObject(hDC, brush);
+	Rectangle(hDC, shape.left, shape.top, shape.right, shape.bottom);
+}
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int
 	nCmdShow)
@@ -23,30 +39,32 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	HDC hDC;	
+	HDC hDC;
 	PAINTSTRUCT ps;
-	static RECT rect = { 0, 0, RECT_WIDTH, RECT_HEIGHT };
-	HBRUSH brush = (HBRUSH)CreateSolidBrush(RGB(R, G, B));
-	static POINT lbutDown, difference;
+	static POINT lbutDown, mouseDiffer;
 	static bool redrawRect = false;
+	HBRUSH brush = CreateSolidBrush(RGB(R, G, B));
+
+	static RECT usrWnd;
 
 	switch (uMsg)
 	{		
 	case WM_PAINT:
-	{		
+	{
+		GetClientRect(hWnd, &usrWnd);
 		InvalidateRect(hWnd, 0, TRUE);
-		hDC = BeginPaint(hWnd, &ps);		
-		CreateRect(hDC, rect, brush);
+		hDC = BeginPaint(hWnd, &ps);
+		Drawing(hDC, brush);
 		EndPaint(hWnd, &ps);
 		break;
-	}	
+	}
 	case WM_LBUTTONDOWN:
 	{
 		lbutDown.x = LOWORD(lParam);
 		lbutDown.y = HIWORD(lParam);
-		difference.x = LOWORD(lParam) - rect.left;
-		difference.y = HIWORD(lParam) - rect.top;
-		if (CheckCoords(lbutDown.x, lbutDown.y, rect))
+		mouseDiffer.x = LOWORD(lParam) - shape.left;
+		mouseDiffer.y = HIWORD(lParam) - shape.top;
+		if (CheckCoords(lbutDown.x, lbutDown.y, shape))
 			redrawRect = true;
 		break;
 	}
@@ -59,16 +77,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		if (redrawRect)
 		{
-			rect.left = LOWORD(lParam) - difference.x;
-			rect.top = HIWORD(lParam) - difference.y;
-			rect.right = rect.left + RECT_WIDTH;
-			rect.bottom = rect.top + RECT_HEIGHT;
-			InvalidateRect(hWnd, &rect, TRUE);
+			shape.left = LOWORD(lParam) - mouseDiffer.x;
+			shape.top = HIWORD(lParam) - mouseDiffer.y;
+			shape.right = shape.left + RECT_WIDTH;
+			shape.bottom = shape.top + RECT_HEIGHT;
+			InvalidateRect(hWnd, &shape, TRUE);
 		}
 		break;
 	}
 	case WM_DESTROY:
 	{
+		DeleteObject(brush);
 		PostQuitMessage(0);
 		break;
 	}
@@ -76,25 +95,4 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
 	return 0;
-}
-
-void CreateRect(HDC hDC, RECT rect, HBRUSH brush)
-{
-	Rectangle(hDC, rect.left, rect.top, rect.right, rect.bottom);
-	FillRect(hDC, &rect, brush);
-}
-
-bool CheckCoords(int x, int y, RECT rect)
-{
-	int length = abs(rect.right - rect.left);
-	int height = abs(rect.bottom - rect.top);
-	if (x >= rect.left && x <= rect.left + length &&
-		y >= rect.top && y <= rect.top + height)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
 }
