@@ -4,12 +4,16 @@
 
 enum Direction { TOP, RIGHT, BOTTOM, LEFT };
 
+int GetStep(Direction direction);
+void RefreshFigure(HWND hWnd, long *firstPoint, long *secondPoint, int step);
+void Moving(HWND hWnd, RECT usrWnd, long *firstPoint, long *secondPoint, Direction direction);
 void Drawing(HDC hDC, HBRUSH brush);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 bool CheckCoords(int, int, RECT);
 
 const int RECT_HEIGHT = 100, RECT_WIDTH = 300;
 const int R = 100, G = 200, B = 200;
+const int KEY_DIST = 40;
 
 RECT shape = { 0, 0, RECT_WIDTH, RECT_HEIGHT };
 
@@ -17,6 +21,33 @@ bool CheckCoords(int x, int y, RECT shape)
 {
 	return (x >= shape.left && x <= shape.right &&
 		    y >= shape.top  && y <= shape.bottom);
+}
+
+int GetStep(Direction direction)
+{
+	switch (direction)
+	{
+	case LEFT:
+		return -KEY_DIST;
+	case TOP:
+		return -KEY_DIST;
+	case BOTTOM:
+		return KEY_DIST;
+	case RIGHT:
+		return KEY_DIST;
+	}
+}
+
+void RefreshFigure(HWND hWnd, long *firstPoint, long *secondPoint, int step)
+{
+	*firstPoint += step;
+	*secondPoint += step;
+	InvalidateRect(hWnd, 0, TRUE);
+}
+
+void Moving(HWND hWnd, RECT usrWnd, long *firstPoint, long *secondPoint, Direction direction)
+{	
+	RefreshFigure(hWnd, firstPoint, secondPoint, GetStep(direction));
 }
 
 void Drawing(HDC hDC, HBRUSH brush)
@@ -82,6 +113,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			shape.right = shape.left + RECT_WIDTH;
 			shape.bottom = shape.top + RECT_HEIGHT;
 			InvalidateRect(hWnd, &shape, TRUE);
+		}
+		break;
+	}
+	case WM_KEYDOWN:
+	{
+		switch (wParam)
+		{
+		case VK_DOWN:
+		{
+			Moving(hWnd, usrWnd, &shape.top, &shape.bottom, BOTTOM);
+			break;
+		}
+		case VK_UP:
+		{
+			Moving(hWnd, usrWnd, &shape.top, &shape.bottom, TOP);
+			break;
+		}
+		case VK_LEFT:
+		{
+			Moving(hWnd, usrWnd, &shape.left, &shape.right, LEFT);
+			break;
+		}
+		case VK_RIGHT:
+		{
+			Moving(hWnd, usrWnd, &shape.left, &shape.right, RIGHT);
+			break;
+		}
+		default:
+			break;
 		}
 		break;
 	}
